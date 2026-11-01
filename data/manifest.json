@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "format": "sha256-bloom",
+  "generated_at": "2026-11-01T00:00:00Z",
+  "bloom_bits": 2200000,
+  "expected_fp_rate": 3.25e-9,
+  "estimated_entries": 1181327,
+  "files": {
+    "sha256-bloom.bin": {
+      "size": 6589734,
+      "sha256": "fe808b055a9511219212b58c5575a7e20d563bf33430613b8c485fa4acb317a6"
+    }
+  },
+  "upstream": {
+    "source": "MaintainTeam/HypatiaDatabases",
+    "upstream_commit": "72",
+    "upstream_url": "https://github.com/MaintainTeam/HypatiaDatabases"
+  },
+  "sources": [
+    {"name": "ESET/malware-ioc", "license": "BSD-2-Clause"},
+    {"name": "MalwareBazaar", "license": "abuse.ch ToS"},
+    {"name": "ThreatFox", "license": "abuse.ch ToS"},
+    {"name": "ClamAV", "license": "Public domain/GPL-2.0"},
+    {"name": "SaneSecurity", "license": "Various"}
+  ]
+}
