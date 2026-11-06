@@ -2,7 +2,7 @@ name: Update definitions
 
 on:
   schedule:
-    - cron: '0 3 * * 0'  # weekly Sunday 03:00 UTC
+    - cron: '0 3 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -15,39 +15,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download upstream bloom filter
+      - name: Download and verify upstream bloom filter
         run: |
-          set -e
-          curl -sSL -o data/sha256-bloom.bin \
+          set -euo pipefail
+          curl --fail --location --retry 3 -o data/sha256-bloom.bin \
             https://github.com/MaintainTeam/HypatiaDatabases/raw/gh-pages/hypatia-sha256-bloom.bin
-          curl -sSL -o data/sha256-bloom.bin.sig \
+          curl --fail --location --retry 3 -o data/sha256-bloom.bin.sig \
             https://github.com/MaintainTeam/HypatiaDatabases/raw/gh-pages/hypatia-sha256-bloom.bin.sig
-          sha256sum data/sha256-bloom.bin
+          gpg --batch --import trusted-signing.key
+          gpg --batch --verify data/sha256-bloom.bin.sig data/sha256-bloom.bin
 
-      - name: Update manifest timestamp and hash
+      - name: Update manifest
         run: |
-          set -e
-          HASH=$(sha256sum data/sha256-bloom.bin | cut -d' ' -f1)
-          SIZE=$(stat -c%s data/sha256-bloom.bin)
-          TODAY=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          python3 -c "
-import json
-m = json.load(open('data/manifest.json'))
-m['generated_at'] = '$TODAY'
-m['files']['sha256-bloom.bin']['sha256'] = '$HASH'
-m['files']['sha256-bloom.bin']['size'] = $SIZE
-json.dump(m, open('data/manifest.json','w'), indent=2)
-"
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          data = Path('data/sha256-bloom.bin').read_bytes()
+          manifest_path = Path('data/manifest.json')
+          manifest = json.loads(manifest_path.read_text())
+          entry = manifest['files']['sha256-bloom.bin']
+          digest = hashlib.sha256(data).hexdigest()
+          if entry['sha256'] == digest and entry['size'] == len(data):
+              print('Database is unchanged.')
+          else:
+              entry['sha256'] = digest
+              entry['size'] = len(data)
+              manifest['generated_at'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+              manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
 
       - name: Commit and push if changed
         run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
           if ! git diff --quiet; then
             git add data/
-            git commit -m "Update definitions: $TODAY"
+            git commit -m "Update verified definitions"
             git push
           else
-            echo "No changes."
+            echo 'No changes.'
           fi
